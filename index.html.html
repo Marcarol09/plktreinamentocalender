@@ -1,0 +1,295 @@
+<html><head><base href="https://websim.io/interactive-training-scheduler/" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda de Treinamentos Interativa</title>
+<style>
+  body {
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: #f0f4f8;
+    padding: 20px;
+  }
+  .scheduler {
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    overflow: hidden;
+    width: 100%;
+    max-width: 800px;
+  }
+  .header {
+    background-color: #4a90e2;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+  }
+  .calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    padding: 20px;
+  }
+  .day {
+    aspect-ratio: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    font-weight: bold;
+  }
+  .day:hover {
+    transform: scale(1.05);
+  }
+  .available {
+    background-color: #4caf50;
+    color: white;
+  }
+  .unavailable {
+    background-color: #f44336;
+    color: white;
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  .selected {
+    background-color: #ff9800;
+    color: white;
+  }
+  .legend {
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+    background-color: #ecf0f1;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    margin: 0 10px;
+  }
+  .legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    margin-right: 5px;
+  }
+  .booking-form {
+    padding: 20px;
+    background-color: #ecf0f1;
+  }
+  .form-group {
+    margin-bottom: 15px;
+  }
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #bdc3c7;
+    border-radius: 5px;
+    font-size: 16px;
+  }
+  button {
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background-color: #3a7bd5;
+  }
+</style>
+</head>
+<body>
+  <div class="scheduler">
+    <div class="header">
+      Agenda de Treinamentos - Outubro 2023
+    </div>
+    <div class="calendar" id="calendar"></div>
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #4caf50;"></div>
+        <span>Disponível</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #f44336;"></div>
+        <span>Indisponível</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background-color: #ff9800;"></div>
+        <span>Selecionado</span>
+      </div>
+    </div>
+    <div class="booking-form">
+      <div class="form-group">
+        <label for="name">Nome:</label>
+        <input type="text" id="name" required>
+      </div>
+      <div class="form-group">
+        <label for="email">E-mail:</label>
+        <input type="email" id="email" required>
+      </div>
+      <div class="form-group">
+        <label for="training">Tipo de Treinamento:</label>
+        <select id="training" required>
+          <option value="">Selecione um treinamento</option>
+          <option value="produto">Treinamento de Produto Específico</option>
+          <option value="completo">Treinamento Completo</option>
+          <option value="videochamada">Treinamento por Videochamada</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="product">Produto (se aplicável):</label>
+        <input type="text" id="product">
+      </div>
+      <div class="form-group">
+        <label for="time">Horário:</label>
+        <select id="time" required>
+          <option value="">Selecione um horário</option>
+          <option value="10:00">10:00</option>
+          <option value="15:00">15:00</option>
+          <option value="17:00">17:00</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="objective">Objetivo do Treinamento:</label>
+        <textarea id="objective" rows="3" required></textarea>
+      </div>
+      <button onclick="bookTraining()">Agendar Treinamento</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@2/dist/email.min.js"></script>
+  <script>
+    (function() {
+      emailjs.init("YOUR_USER_ID"); // Substitua com seu User ID do EmailJS
+    })();
+
+    const calendar = document.getElementById('calendar');
+    
+    const availableDates = [23, 24]; // Datas disponíveis em outubro
+    let selectedDate = null;
+    
+    function createCalendar() {
+      const year = 2023;
+      const month = 9; // 0-based, so 9 is October
+      
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const firstDayOfMonth = new Date(year, month, 1).getDay();
+      
+      calendar.innerHTML = '';
+      
+      for (let i = 0; i < firstDayOfMonth; i++) {
+        const emptyDay = document.createElement('div');
+        calendar.appendChild(emptyDay);
+      }
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayElement = document.createElement('div');
+        dayElement.classList.add('day');
+        dayElement.textContent = day;
+        
+        if (availableDates.includes(day)) {
+          dayElement.classList.add('available');
+          dayElement.addEventListener('click', () => selectDate(dayElement, day));
+        } else {
+          dayElement.classList.add('unavailable');
+        }
+        
+        calendar.appendChild(dayElement);
+      }
+    }
+    
+    function selectDate(element, day) {
+      if (selectedDate) {
+        document.querySelector('.selected').classList.remove('selected');
+      }
+      element.classList.add('selected');
+      selectedDate = day;
+    }
+    
+    function bookTraining() {
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const training = document.getElementById('training').value;
+      const product = document.getElementById('product').value;
+      const time = document.getElementById('time').value;
+      const objective = document.getElementById('objective').value;
+      
+      if (!selectedDate || !name || !email || !training || !time || !objective) {
+        alert('Por favor, preencha todos os campos obrigatórios e selecione uma data.');
+        return;
+      }
+      
+      const bookingDetails = {
+        date: `${selectedDate}/10/2023`,
+        name: name,
+        email: email,
+        training: training,
+        product: product,
+        time: time,
+        objective: objective
+      };
+      
+      console.log('Detalhes da reserva:', bookingDetails);
+      
+      // Enviar e-mail usando EmailJS
+      emailjs.send("YOUR_SERVICE_ID", "YOUR_TEMPLATE_ID", {
+        to_email: "carollbroks@gmail.com",
+        from_name: "Sistema de Agendamento de Treinamentos",
+        user_name: name,
+        user_email: email,
+        date: bookingDetails.date,
+        time: time,
+        training_type: training,
+        product: product,
+        objective: objective
+      }).then(
+        function(response) {
+          console.log("E-mail enviado com sucesso", response);
+          alert(`Treinamento agendado com sucesso para ${bookingDetails.date} às ${time}! Um e-mail de confirmação foi enviado para carollbroks@gmail.com.`);
+          
+          // Marcar a data como indisponível
+          const selectedElement = document.querySelector('.selected');
+          selectedElement.classList.remove('available', 'selected');
+          selectedElement.classList.add('unavailable');
+          selectedElement.removeEventListener('click', selectDate);
+          
+          // Remover a data da lista de disponíveis
+          availableDates.splice(availableDates.indexOf(selectedDate), 1);
+          
+          // Resetar a seleção
+          selectedDate = null;
+        },
+        function(error) {
+          console.log("Falha ao enviar e-mail", error);
+          alert("Ocorreu um erro ao enviar o e-mail de confirmação. Por favor, entre em contato conosco.");
+        }
+      );
+      
+      // Resetar o formulário
+      document.getElementById('name').value = '';
+      document.getElementById('email').value = '';
+      document.getElementById('training').value = '';
+      document.getElementById('product').value = '';
+      document.getElementById('time').value = '';
+      document.getElementById('objective').value = '';
+    }
+    
+    createCalendar();
+  </script>
+</body>
+</html>
